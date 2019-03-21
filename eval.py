@@ -41,7 +41,7 @@ class sequence_to_one(nn.Module):
                               bias=True,
                               return_all_layers=False)
 
-        self.fc1 = nn.Linear(128*32*32, 1024).cuda()
+        self.fc1 = nn.Linear(128 * 32 * 32, 1024).cuda()
         self.fc2 = nn.Linear(1024, 1).cuda()
 
     def forward(self, x):
@@ -60,55 +60,36 @@ def main():
     # b, t, c , h, w
     dataset = seq_dataset("../faster-rcnn.pytorch/seqdata/", (32, 32))
 
-    dataloader = DataLoader(dataset, batch_size=8,
-                            shuffle=True, num_workers=20)
+    dataloader = DataLoader(dataset, batch_size=1,
+                            shuffle=False, num_workers=3)
 
     net = sequence_to_one()
     net.cuda()
 
     checkpoint = torch.load("./models_back/session_{}_{}_{:.3f}.pth".format(session, 113, 0.110))
     net.load_state_dict(checkpoint)
+    TP = 0.0
 
-    #optimizer = optim.SGD(net.parameters(), lr=0.000001, momentum=0.9)
-    optimizer = optim.Adam(net.parameters(), lr=0.000001)
+    for i, sample_batch in enumerate(dataloader):
 
-    #loss = torch.unsqueeze(loss,0)
+        input_data = sample_batch[0].cuda()
+        label = torch.FloatTensor(1)
+        label = label.cuda()
+        label = Variable(label)
+        label.data.resize_(sample_batch[1].size()).copy_(sample_batch[1])
 
-    current_loss = 0
-    for epoch in range(1000):  # loop over the dataset multiple times
-        running_loss = 0
-        for i, sample_batch in enumerate(dataloader):
+        # out= net(torch.cuda.FloatTensor(input_data))
+        out = net(input_data)
+        # logits = F.softmax(out, dim=1)
+        logits = F.sigmoid(out)
+        TP += (torch.round(logits)[0] == torch.round(label)).cpu().numpy()
+        # loss = F.cross_entropy(logits, torch.cuda.LongTensor(label).squeeze(1))
+        # loss = F.cross_entropy(logits, label)
+    accury = TP.cpu().numpy() / len(dataloader)
+    print(accury)
 
-            input_data = sample_batch[0].cuda()
-            label = torch.FloatTensor(1)
-            label = label.cuda()
-            label = Variable(label)
-            label.data.resize_(sample_batch[1].size()).copy_(sample_batch[1])
 
-            optimizer.zero_grad()
-            # out= net(torch.cuda.FloatTensor(input_data))
-            out = net(input_data)
-            # logits = F.softmax(out, dim=1)
-            logits = F.sigmoid(out)
-            # loss = F.cross_entropy(logits, torch.cuda.LongTensor(label).squeeze(1))
-            # loss = F.cross_entropy(logits, label)
-            loss = F.l1_loss(logits, label.unsqueeze(1))
-            loss.backward()
-            optimizer.step()
-            running_loss += loss.item()
-            if i % 100 == 99:
-                print('[%d, %5d] loss : %.3f' %
-                      (epoch + 1, i+1, running_loss / 100))
-                current_loss = running_loss / 100
-                running_loss = 0.0
-
-        print(logits)
-        print(label)
-
-        torch.save(net.state_dict(
-        ), "models/session_{}_{}_{:.3f}.pth".format(session, epoch, current_loss))
-
-    print('Finished Training')
+print('Finished Training')
 
 
 if __name__ == '__main__':
