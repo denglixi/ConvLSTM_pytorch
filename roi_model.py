@@ -22,32 +22,32 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
-from get_seqdata import seq_dataset
+from get_roi_seqdata import seq_dataset
 from skimage.transform import resize
 import cv2
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 
 class sequence_to_one(nn.Module):
     def __init__(self):
         super(sequence_to_one, self).__init__()
-        self.model = ConvLSTM(input_size=(32, 32),
-                              input_dim=3,
-                              hidden_dim=[64, 64, 128],
+        self.model = ConvLSTM(input_size=(7, 7),
+                              input_dim=1024,
+                              hidden_dim=[7, 7, 128],
                               kernel_size=(3, 3),
                               num_layers=3,
                               batch_first=True,
                               bias=True,
                               return_all_layers=False)
 
-        self.fc1 = nn.Linear(128*32*32, 1024).cuda()
+        self.fc1 = nn.Linear(128 * 7*7, 1024).cuda()
         self.fc2 = nn.Linear(1024, 1).cuda()
 
     def forward(self, x):
         out = self.model(x)
         out = out[0][0][:, -1, :]
-        out = out.view(-1, 128 * 32 * 32)
+        out = out.view(-1, 128 * 7 * 7)
         # out = self.fc(out.mean(3).mean(2))
         out = self.fc1(out)
         out = self.fc2(out)
@@ -58,21 +58,21 @@ def main():
 
     session = 4
     # b, t, c , h, w
-    dataset = seq_dataset("../faster-rcnn.pytorch/seqdata/", (32, 32))
+    dataset = seq_dataset("./seqdata_feature/", (32, 32))
 
-    dataloader = DataLoader(dataset, batch_size=8,
+    dataloader = DataLoader(dataset, batch_size=1,
                             shuffle=True, num_workers=20)
 
     net = sequence_to_one()
     net.cuda()
 
-    checkpoint = torch.load("./models_back/session_{}_{}_{:.3f}.pth".format(session, 113, 0.110))
-    net.load_state_dict(checkpoint)
+    # checkpoint = torch.load("./models_back/session_{}_{}_{:.3f}.pth".format(session, 113, 0.110))
+    # net.load_state_dict(checkpoint)
 
-    #optimizer = optim.SGD(net.parameters(), lr=0.000001, momentum=0.9)
-    optimizer = optim.Adam(net.parameters(), lr=0.000001)
+    # optimizer = optim.SGD(net.parameters(), lr=0.000001, momentum=0.9)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
 
-    #loss = torch.unsqueeze(loss,0)
+    # loss = torch.unsqueeze(loss,0)
 
     current_loss = 0
     for epoch in range(1000):  # loop over the dataset multiple times

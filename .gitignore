@@ -101,3 +101,4 @@ ENV/
 .mypy_cache/
 models
 models_back
+seqdata_feature

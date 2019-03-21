@@ -22,6 +22,7 @@ import cv2
 
 class seq_dataset(Dataset):
     """seq_dataset"""
+
     def __init__(self, data_dir, resize=(64, 64)):
         self.data_dir = data_dir
         self.resize = resize
@@ -34,21 +35,24 @@ class seq_dataset(Dataset):
         sample_path = os.path.join(self.data_dir, self.sample_fs[idx])
         with open(sample_path, 'rb') as f:
 
+            # input_data.shape = (6, 1, 1024, 7, 7)
+            # label is numpy.int32
             input_data = pickle.load(f)
             label = pickle.load(f)
-            input_data = [cv2.resize(x, self.resize) for x in input_data]
-            input_data = np.array(input_data).astype(np.float32)
-            input_data = np.transpose(input_data, (0, 3, 1, 2))
 
+            input_data = np.squeeze(input_data)
+
+            # resize input
+            # input_data = [cv2.resize(x, self.resize) for x in input_data]
 
             label = idx % 2
-            #label ^= 1
+            # label ^= 1
 
         return input_data, label
 
 
 def main():
-    seq_d = seq_dataset("../faster-rcnn.pytorch/seqdata_feature/")
+    seq_d = seq_dataset("./seqdata_feature/")
     tp = 0
     for i in range(len(seq_d)):
         crops, label = seq_d[i]
